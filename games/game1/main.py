@@ -26,10 +26,12 @@ mat = logic.start_game()
 
 class ScoreKeeper(QtCore.QObject):
     score_changed = QtCore.pyqtSignal(int)
+    game_state = QtCore.pyqtSignal(str)
 
     def __init__(self) -> None:
         super().__init__()
         self.score = 0
+        self.state = 'GAME NOT OVER'
     
     def update_score(self, new_score):
         self.score += new_score
@@ -38,6 +40,14 @@ class ScoreKeeper(QtCore.QObject):
     def reset_score(self):
         self.score = 0
         self.score_changed.emit(self.score)
+
+    def update_state(self, new_state):
+        self.state = new_state
+        self.game_state.emit(self.state)
+
+    def reset_state(self):
+        self.state = 'GAME NOT OVER'
+        self.game_state.emit(self.state)
 
 
 class GridWidget(QWidget):
@@ -103,13 +113,12 @@ class GridWidget(QWidget):
             if flag:
                 logic.add_new_2(mat)
 
-        # update grid after a move and get the score
+        state = logic.get_current_state(mat)
+
+        # update grid after a move and get the score and state
         self.update_grid()
         self.score_keeper.update_score(score)        
-
-        # get the state of the game
-        game_state = logic.get_current_state(mat)
-        print(game_state)
+        self.score_keeper.update_state(state)
 
     def reset_grid(self):
         global mat 
@@ -126,14 +135,20 @@ class Game_1(QWidget):
         self.score = 0
         self.highest_score = 0
 
+        # game over label
+        self.game_over_label = QLabel('Game Over!')
+        self.game_over_label.setStyleSheet('color: rgba(255,0,0,0)')
+
         # grid instance
         self.game_grid = GridWidget()
-        self.game_grid_layout = QHBoxLayout()
+        self.game_grid_layout = QVBoxLayout()
         self.game_grid_layout.addWidget(self.game_grid, alignment= QtCore.Qt.AlignCenter)
+        self.game_grid_layout.addWidget(self.game_over_label, alignment= QtCore.Qt.AlignCenter)
 
         # score keeper instance from GridWidget class
         self.score_keeper = self.game_grid.score_keeper
         self.score_keeper.score_changed.connect(self.update_score_labels)
+        self.score_keeper.game_state.connect(self.update_game_over_label)
 
 
         # main layout
@@ -182,10 +197,17 @@ class Game_1(QWidget):
         self.score_label.setText(f"Score : {str(self.score)}")
         self.highest_score_label.setText(f"Record Score : {str(self.highest_score)}")
 
+    def update_game_over_label(self, state):
+        if state == 'LOST':
+            self.game_over_label.setStyleSheet('color: rgba(255,0,0,1)')
+        else:
+            self.game_over_label.setStyleSheet('color: rgba(255,0,0,0)')
+
     def reset_game(self):
         self.game_grid.reset_grid()
         self.game_grid.setFocus()
         self.game_grid.score_keeper.reset_score()
+        self.game_grid.score_keeper.reset_state()
         self.update_score_labels(self.score)
 
         
